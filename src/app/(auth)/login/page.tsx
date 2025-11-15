@@ -1,113 +1,181 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/store/authStore';
+import { toast } from 'sonner';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
-import { useLogin } from '@/hooks/useAuth';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-
-const loginSchema = z.object({
-  email: z.string().email('Email invalide'),
-  password: z.string().min(6, 'Minimum 6 caractères'),
-});
-
-type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const { mutate: login, isPending } = useLogin();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-  });
+  const router = useRouter();
+  const login = useAuthStore((state) => state.login);
 
-  const onSubmit = (data: LoginForm) => {
-    login(data);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      console.log('🔍 Tentative de connexion avec:', email);
+      
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      console.log('📥 Statut de la réponse:', response.status);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Erreur de connexion');
+      }
+
+      const data = await response.json();
+      console.log('✅ Données reçues:', data);
+
+      // ✅ CORRECTION : L'API retourne "token" pas "access_token"
+      const authToken = data.token || data.access_token;
+      
+      if (!authToken) {
+        throw new Error('Token manquant dans la réponse');
+      }
+
+      console.log('🔑 Token extrait:', authToken.substring(0, 20) + '...');
+
+      // Set auth in store
+      login(data.user, authToken);
+      
+      toast.success('Connexion réussie !');
+      
+      // Attendre un peu pour que le store se mette à jour
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Redirection selon le rôle
+      const roleMap: Record<string, string> = {
+        'ADMIN': 'admin',
+        'FARMER': 'agriculteur',
+        'INVESTOR': 'investisseur',
+      };
+      
+      const dashboardPath = `/dashboard/${roleMap[data.user.role] || 'investisseur'}`;
+      console.log('🚀 Redirection vers:', dashboardPath);
+      
+      router.push(dashboardPath);
+      router.refresh();
+
+    } catch (error: any) {
+      console.error('❌ Erreur:', error);
+      toast.error(error.message || 'Erreur lors de la connexion');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-blue-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 px-4">
       <div className="w-full max-w-md">
-        {/* Logo / Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-600 rounded-2xl mb-4 shadow-lg">
-            <span className="text-3xl">🌾</span>
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+              <span className="text-3xl">🌱</span>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900">9m2</h1>
+            <p className="text-gray-600 mt-2">Connexion à votre compte</p>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Bon retour !
-          </h1>
-          <p className="text-gray-600">
-            Connectez-vous à votre compte 9M2
-          </p>
-        </div>
 
-        {/* Form Card */}
-        <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <Input
-              label="Email"
-              type="email"
-              placeholder="votreemail@example.com"
-              error={errors.email?.message}
-              {...register('email')}
-            />
-
-            <Input
-              label="Mot de passe"
-              type="password"
-              placeholder="••••••••"
-              error={errors.password?.message}
-              {...register('password')}
-            />
-
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 text-emerald-600 rounded" />
-                <span className="text-gray-600">Se souvenir de moi</span>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email
               </label>
-              <Link href="/forgot-password" className="text-emerald-600 hover:text-emerald-700 font-medium">
-                Mot de passe oublié ?
-              </Link>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="investisseur@9m2.com"
+                />
+              </div>
             </div>
 
-            <Button type="submit" variant="primary" className="w-full" isLoading={isPending}>
-              Se connecter
-            </Button>
+            {/* Password */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                Mot de passe
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Connexion...
+                </span>
+              ) : (
+                'Se connecter'
+              )}
+            </button>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">Ou</span>
-            </div>
+          {/* Footer */}
+          <div className="mt-6 text-center text-sm text-gray-600">
+            Pas encore de compte ?{' '}
+            <Link href="/register" className="text-green-600 hover:text-green-700 font-semibold">
+              S'inscrire
+            </Link>
           </div>
 
-          {/* Register Link */}
-          <div className="text-center">
-            <p className="text-gray-600">
-              Pas encore de compte ?{' '}
-              <Link href="/register" className="text-emerald-600 hover:text-emerald-700 font-semibold">
-                Inscrivez-vous gratuitement
-              </Link>
-            </p>
+          {/* Test Accounts */}
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <p className="text-xs font-semibold text-gray-700 mb-2">Comptes de test :</p>
+            <div className="space-y-1 text-xs text-gray-600">
+              <p>👨‍🌾 Agriculteur : <code className="bg-white px-1 py-0.5 rounded">agriculteur@9m2.com</code></p>
+              <p>💰 Investisseur : <code className="bg-white px-1 py-0.5 rounded">investisseur@9m2.com</code></p>
+              <p>🔑 Mot de passe : <code className="bg-white px-1 py-0.5 rounded">password123</code></p>
+            </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-sm text-gray-500 mt-8">
-          En vous connectant, vous acceptez nos{' '}
-          <Link href="/terms" className="text-emerald-600 hover:underline">
-            Conditions d'utilisation
-          </Link>
-        </p>
       </div>
     </div>
   );
