@@ -11,19 +11,75 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
-  firstName String
-  lastName  String
-  phone     String?
-  isActive  Boolean  @default(true)
-  role      UserRole @default(INVESTISSEUR)
+  nom       String
+  prenom    String
+  role      Role     @default(INVESTISSEUR)
+  telephone String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("users")
+  // Relations
+  parcelles       Parcelle[]      @relation("AgriculteurParcelles")
+  investissements Investissement[] @relation("InvestisseurInvestissements")
+
+  @@map("User")
 }
 
-enum UserRole {
+model Parcelle {
+  id           String   @id @default(uuid())
+  nom          String
+  superficie   Float
+  localisation String
+  typeculture  String
+  description  String   @db.Text
+  prix_m2      Float
+  statut       StatutParcelle @default(DISPONIBLE)
+  images       String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  agriculteurId   String
+  agriculteur     User             @relation("AgriculteurParcelles", fields: [agriculteurId], references: [id], onDelete: Cascade)
+  investissements Investissement[] @relation("ParcelleInvestissements")
+
+  @@map("Parcelle")
+}
+
+model Investissement {
+  id            String   @id @default(uuid())
+  superficie    Float
+  montant_total Float
+  statut        StatutInvestissement @default(EN_ATTENTE)
+  date_debut    DateTime
+  date_fin      DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  investisseurId String
+  investisseur   User     @relation("InvestisseurInvestissements", fields: [investisseurId], references: [id], onDelete: Cascade)
+  parcelleId     String
+  parcelle       Parcelle @relation("ParcelleInvestissements", fields: [parcelleId], references: [id], onDelete: Cascade)
+
+  @@map("Investissement")
+}
+
+enum Role {
   ADMIN
   INVESTISSEUR
-  PAYSAN
+  AGRICULTEUR
+}
+
+enum StatutParcelle {
+  DISPONIBLE
+  PARTIELLEMENT_VENDUE
+  VENDUE
+}
+
+enum StatutInvestissement {
+  EN_ATTENTE
+  ACTIF
+  TERMINE
+  ANNULE
 }

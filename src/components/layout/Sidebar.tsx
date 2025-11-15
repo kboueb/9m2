@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+
 import {
   LayoutDashboard,
   TrendingUp,
@@ -61,14 +62,15 @@ export function Sidebar({ userRole }: SidebarProps) {
     }
 
     // INVESTOR / INVESTISSEUR
+    // INVESTOR / INVESTISSEUR
     return [
       { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/dashboard/investisseur' },
+      { id: 'parcelles', label: 'Louer Parcelles', icon: <Package className="w-5 h-5" />, path: '/dashboard/investisseur/parcelles', badge: 24 }, // ✅ AJOUT
+      { id: 'mes-parcelles', label: 'Mes Parcelles', icon: <Sprout className="w-5 h-5" />, path: '/dashboard/investisseur/mes-parcelles' }, // ✅ AJOUT
       { id: 'investments', label: 'Mes Investissements', icon: <Wallet className="w-5 h-5" />, path: '/dashboard/investisseur/investments' },
-      { id: 'opportunities', label: 'Opportunités', icon: <TrendingUp className="w-5 h-5" />, path: '/dashboard/investisseur/opportunities', badge: 5 },
-      { id: 'portfolio', label: 'Portfolio', icon: <BarChart3 className="w-5 h-5" />, path: '/dashboard/investisseur/portfolio' },
-      { id: 'documents', label: 'Documents', icon: <FileText className="w-5 h-5" />, path: '/dashboard/investisseur/documents' },
-      { id: 'profile', label: 'Mon Profil', icon: <User className="w-5 h-5" />, path: '/dashboard/investisseur/profile' },
+      // ... reste du code
     ];
+
   };
 
   const menuItems = getMenuItems();

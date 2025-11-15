@@ -1,79 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { compare } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { signToken } from '@/lib/auth';
-import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-const loginSchema = z.object({
-  email: z.string().email('Email invalide'),
-  password: z.string().min(1, 'Mot de passe requis'),
-});
+const JWT_SECRET = process.env.JWT_SECRET || 'votre-secret-jwt-a-changer';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = loginSchema.parse(body);
+    const { email, password } = body;
 
-    // Trouver l'utilisateur
+    console.log('🔍 Tentative de connexion pour:', email);
+
+    // Validation
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: 'Email et mot de passe requis' },
+        { status: 400 }
+      );
+    }
+
+    // Rechercher l'utilisateur
     const user = await prisma.user.findUnique({
       where: { email },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        nom: true,
+        prenom: true,
+        role: true,
+        telephone: true,
+      },
     });
 
     if (!user) {
+      console.log('❌ Utilisateur non trouvé');
       return NextResponse.json(
-        { message: 'Email ou mot de passe incorrect' },
+        { error: 'Identifiants invalides' },
         { status: 401 }
       );
     }
 
-    // Vérifier si le compte est actif
-    // if (!user.isActive) {
-    //   return NextResponse.json(
-    //     { message: 'Compte désactivé' },
-    //     { status: 403 }
-    //   );
-    // }
-
     // Vérifier le mot de passe
-    const isPasswordValid = await compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
+      console.log('❌ Mot de passe incorrect');
       return NextResponse.json(
-        { message: 'Email ou mot de passe incorrect' },
+        { error: 'Identifiants invalides' },
         { status: 401 }
       );
     }
 
     // Générer le token JWT
-    const token = await signToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    });
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Retirer le password avant de renvoyer
+    const { password: _, ...userWithoutPassword } = user;
+
+    console.log('✅ Connexion réussie pour:', email);
 
     return NextResponse.json({
       message: 'Connexion réussie',
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        phone: user.phone,
-      },
+      user: userWithoutPassword,
       token,
     });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: 'Données invalides', errors: error.errors },
-        { status: 400 }
-      );
-    }
 
-    console.error('Login error:', error);
+  } catch (error: any) {
+    console.error('❌ Erreur serveur:', error);
     return NextResponse.json(
-      { message: 'Erreur lors de la connexion' },
+      { error: 'Erreur lors de la connexion' },
       { status: 500 }
     );
   }

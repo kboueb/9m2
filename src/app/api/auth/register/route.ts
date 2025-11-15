@@ -1,85 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hash } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { signToken } from '@/lib/auth';
-import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-const registerSchema = z.object({
-  email: z.string().email('Email invalide'),
-  password: z.string().min(6, 'Mot de passe trop court (min 6 caractères)'),
-  firstName: z.string().min(2, 'Prénom requis'),
-  lastName: z.string().min(2, 'Nom requis'),
-  role: z.enum(['ADMIN', 'INVESTISSEUR', 'PAYSAN']).default('INVESTISSEUR'),
-  phone: z.string().optional(),
-});
+const JWT_SECRET = process.env.JWT_SECRET || 'votre-secret-jwt-a-changer';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const validatedData = registerSchema.parse(body);
+    const { email, password, nom, prenom, telephone, role } = body;
 
-    // Vérifier si l'email existe déjà
+    console.log('🔍 Tentative d\'inscription pour:', email);
+
+    // Validation
+    if (!email || !password || !nom || !prenom) {
+      return NextResponse.json(
+        { error: 'Tous les champs obligatoires doivent être remplis' },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier si l'utilisateur existe déjà
     const existingUser = await prisma.user.findUnique({
-      where: { email: validatedData.email },
+      where: { email },
     });
 
     if (existingUser) {
+      console.log('❌ Email déjà utilisé');
       return NextResponse.json(
-        { message: 'Cet email est déjà utilisé' },
+        { error: 'Cet email est déjà utilisé' },
         { status: 409 }
       );
     }
 
     // Hasher le mot de passe
-    const hashedPassword = await hash(validatedData.password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Créer l'utilisateur
     const user = await prisma.user.create({
       data: {
-        email: validatedData.email,
+        email,
         password: hashedPassword,
-        firstName: validatedData.firstName,
-        lastName: validatedData.lastName,
-        role: validatedData.role,
-        ...(validatedData.phone && { phone: validatedData.phone }), // ⬅️ Conditionnel
+        nom,
+        prenom,
+        telephone,
+        role: role || 'INVESTISSEUR',
       },
       select: {
         id: true,
         email: true,
-        firstName: true,
-        lastName: true,
+        nom: true,
+        prenom: true,
         role: true,
-        phone: true,
-        createdAt: true,
+        telephone: true,
       },
     });
 
-    // Générer un token JWT
-    const token = await signToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    });
-
-    return NextResponse.json(
+    // Générer le token JWT
+    const token = jwt.sign(
       {
-        message: 'Inscription réussie',
-        user,
-        token,
+        userId: user.id,
+        email: user.email,
+        role: user.role,
       },
-      { status: 201 }
+      JWT_SECRET,
+      { expiresIn: '7d' }
     );
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: 'Données invalides', errors: error.errors },
-        { status: 400 }
-      );
-    }
 
-    console.error('Register error:', error);
+    console.log('✅ Inscription réussie pour:', email);
+
+    return NextResponse.json({
+      message: 'Inscription réussie',
+      user,
+      token,
+    }, { status: 201 });
+
+  } catch (error: any) {
+    console.error('❌ Erreur serveur:', error);
     return NextResponse.json(
-      { message: 'Erreur lors de l\'inscription' },
+      { error: 'Erreur lors de l\'inscription' },
       { status: 500 }
     );
   }

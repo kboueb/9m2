@@ -1,0 +1,28 @@
+import { ParcelleForm } from '@/components/admin/ParcelleForm';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+
+export default function NewParcellePage() {
+  return (
+    <div className="container mx-auto p-6 max-w-4xl">
+      <div className="mb-6">
+        <Link href="/dashboard/admin/parcelles">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Retour à la liste
+          </Button>
+        </Link>
+      </div>
+
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Nouvelle Parcelle</h1>
+        <p className="text-muted-foreground mt-2">
+          Ajoutez une nouvelle parcelle au catalogue
+        </p>
+      </div>
+
+      <ParcelleForm />
+    </div>
+  );
+}
