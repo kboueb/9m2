@@ -1,0 +1,89 @@
+### Variables
+@baseUrl = http://localhost:3000
+@token = eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOiIwYmY1Mjc3OC01ODkzLTQ1YmEtODdhZC0xNzdkNjRiNjg4YTQiLCJlbWFpbCI6ImFkbWluQDltMi5jb20iLCJleHAiOjE3NjM3NzI1Njl9.eXhbj1v2KNqahgaMUr3nPu-Y9KiGRG-zWSd89i8DV5g
+
+### 1. Health Check
+GET {{baseUrl}}
+
+### 2. Register (Test - optionnel)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "admin2@9m2.com",
+  "password": "admin123",
+  "firstName": "Admin",
+  "lastName": "User",
+  "role": "ADMIN"
+}
+
+### 3. Login Admin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@9m2.com",
+  "password": "admin123"
+}
+
+### 4. Login Investisseur
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "investisseur@9m2.com",
+  "password": "invest123"
+}
+
+### 5. Login Paysan
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "paysan@9m2.com",
+  "password": "paysan123"
+}
+
+### 6. Get Profile (avec le token)
+# Copie le token de la réponse login et colle-le dans @token en haut
+GET {{baseUrl}}/api/auth/profile
+Authorization: Bearer {{token}}
+
+### 7. Get All Users (Admin uniquement)
+GET {{baseUrl}}/api/users
+Authorization: Bearer {{token}}
+
+### Register
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "nouveau@9m2.com",
+  "password": "password123",
+  "firstName": "Nouveau",
+  "lastName": "Utilisateur",
+  "role": "INVESTISSEUR",
+  "phone": "+33612345678"
+}
+
+### Get All Users
+GET {{baseUrl}}/api/users?page=1&limit=10&role=INVESTISSEUR
+Authorization: Bearer {{token}}
+
+### Get User by ID
+GET {{baseUrl}}/api/users/USER_ID_ICI
+Authorization: Bearer {{token}}
+
+### Update User
+PUT {{baseUrl}}/api/users/USER_ID_ICI
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "Prénom Modifié",
+  "phone": "+33698765432"
+}
+
+### Delete User (Soft Delete)
+DELETE {{baseUrl}}/api/users/USER_ID_ICI
+Authorization: Bearer {{token}}
